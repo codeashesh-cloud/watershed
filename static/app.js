@@ -271,3 +271,27 @@ async function downloadPDF() {
     setTimeout(() => toast.remove(), 3000);
   }
 }
+
+function animateCounter(el, target, suffix) {
+  let current = 0;
+  const increment = target / 50;
+  const timer = setInterval(() => {
+    current += increment;
+    if (current >= target) {
+      current = target;
+      clearInterval(timer);
+    }
+    el.textContent = Math.floor(current).toLocaleString() + suffix;
+  }, 30);
+}
+
+function initStats() {
+  const stats = document.getElementById('crisis-stats');
+  if (!stats) return;
+  animateCounter(document.getElementById('stat-rivers'), 3500000, ' miles');
+  animateCounter(document.getElementById('stat-people'), 2000000000, ' people');
+  animateCounter(document.getElementById('stat-monitored'), 10, '%');
+}
+
+// Initialize stats on page load
+window.addEventListener('load', initStats);
