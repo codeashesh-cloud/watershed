@@ -62,6 +62,7 @@ async function analyzeLocation(lat, lng, name) {
     const data = await res.json();
     if (!data.success) throw new Error('Analysis failed');
     renderReport(data);
+    window.lastReport = data.report;
     document.getElementById("alert-btn").style.display = "block";
     drawRiskCircle(lng, lat, data.risk_level, data.anomaly_score.score);
     drawFacilityMarkers(data.facilities);
@@ -243,4 +244,30 @@ function shareReport() {
   toast.textContent = "🔗 Report link copied!";
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
+}
+
+async function downloadPDF() {
+  const location = document.getElementById('location-input').value;
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3b82f6;color:white;padding:14px 20px;border-radius:10px;font-size:14px;z-index:9999;';
+  toast.textContent = '⏳ Generating PDF...';
+  document.body.appendChild(toast);
+  try {
+    const resp = await fetch('/api/generate-pdf', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({report: window.lastReport, location_name: location})
+    });
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'watershed-report.pdf';
+    a.click();
+    toast.textContent = '✅ PDF downloaded!';
+    setTimeout(() => toast.remove(), 3000);
+  } catch(e) {
+    toast.textContent = '❌ PDF failed. Try again.';
+    setTimeout(() => toast.remove(), 3000);
+  }
 }

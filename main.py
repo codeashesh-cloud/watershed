@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -54,3 +54,19 @@ def _risk_color(level: str) -> str:
 async def mapbox_token():
     return {"token": os.getenv("MAPBOX_TOKEN")}
 
+
+from fastapi.responses import Response
+from pdf_service import generate_report_pdf
+import json
+
+@app.post("/api/generate-pdf")
+async def generate_pdf(request: Request):
+    body = await request.json()
+    report = body.get("report")
+    location = body.get("location_name", "Unknown Location")
+    pdf_bytes = generate_report_pdf(report, location)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=watershed-report.pdf"}
+    )
