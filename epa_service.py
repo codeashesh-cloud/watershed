@@ -37,11 +37,13 @@ KNOWN_FACILITIES = {
 }
 
 def get_nearby_facilities(lat: float, lng: float, location_name: str = "") -> list:
+    # Use a session for the two EPA calls to reuse TCP connection (thread-safe: one session per call)
+    sess = requests.Session()
     # Try real EPA API first
     try:
-        query_id = _get_query_id(lat, lng)
+        query_id = _get_query_id(lat, lng, sess)
         if query_id:
-            facilities = _get_facilities_by_qid(query_id)
+            facilities = _get_facilities_by_qid(query_id, sess)
             if facilities:
                 return facilities
     except Exception:
@@ -56,8 +58,8 @@ def get_nearby_facilities(lat: float, lng: float, location_name: str = "") -> li
 
     return []
 
-def _get_query_id(lat, lng):
-    resp = requests.get(
+def _get_query_id(lat, lng, session: requests.Session):
+    resp = session.get(
         'https://echodata.epa.gov/echo/cwa_rest_services.get_facilities',
         params={
             'output': 'JSON',
@@ -65,15 +67,15 @@ def _get_query_id(lat, lng):
             'p_act': 'Y',
             'responseset': 8
         },
-        timeout=8
+        timeout=6
     )
     return resp.json().get('Results', {}).get('QueryID')
 
-def _get_facilities_by_qid(query_id):
-    resp = requests.get(
+def _get_facilities_by_qid(query_id, session: requests.Session):
+    resp = session.get(
         'https://echodata.epa.gov/echo/cwa_rest_services.get_facilities',
         params={'output': 'JSON', 'p_qid': query_id, 'responseset': 8},
-        timeout=8
+        timeout=6
     )
     results = resp.json().get('Results', {}).get('Facilities', [])
     facilities = []

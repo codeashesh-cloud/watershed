@@ -31,7 +31,7 @@ def _get_usgs_score(lat: float, lng: float):
                 'parameterCd': '00060,00300,63680',
                 'siteStatus': 'active'
             },
-            timeout=10
+            timeout=6,
         )
         if resp.status_code != 200:
             return None, []
