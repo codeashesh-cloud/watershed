@@ -223,17 +223,27 @@ function submitAlert() {
     alert('Please enter a valid email address.');
     return;
   }
-  document.getElementById('alert-modal').remove();
-  const toast = document.createElement('div');
-  toast.style.cssText = `
-    position:fixed; bottom:24px; right:24px;
-    background:#22c55e; color:white; padding:14px 20px;
-    border-radius:10px; font-size:14px; z-index:9999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  `;
-  toast.textContent = `✅ Alert set! We'll notify ${email} of changes.`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  const location = document.getElementById('location-input').value || 'your location';
+  const riskLevel = document.getElementById('risk-badge') ? document.getElementById('risk-badge').textContent : 'Unknown';
+  const riskScore = document.getElementById('risk-score-display') ? document.getElementById('risk-score-display').textContent : 'N/A';
+  const summary = document.getElementById('risk-summary') ? document.getElementById('risk-summary').textContent.substring(0, 200) : '';
+
+  emailjs.send('service_94j21cc', 'template_xu0nk42', {
+    to_email: email,
+    location: location,
+    risk_level: riskLevel,
+    risk_score: riskScore,
+    summary: summary
+  }).then(() => {
+    document.getElementById('alert-modal').remove();
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#22c55e;color:white;padding:14px 20px;border-radius:10px;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+    toast.textContent = '✅ Alert set! Check your email.';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }).catch(() => {
+    alert('Failed to set alert. Please try again.');
+  });
 }
 
 function shareReport() {
