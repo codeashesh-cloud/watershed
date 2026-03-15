@@ -63,6 +63,7 @@ async function analyzeLocation(lat, lng, name) {
     if (!data.success) throw new Error('Analysis failed');
     renderReport(data);
     window.lastReport = data.report;
+    window.lastDataSource = data.anomaly_score?.data_source || '';
     document.getElementById("alert-btn").style.display = "block";
     drawRiskCircle(lng, lat, data.risk_level, data.anomaly_score.score);
     drawFacilityMarkers(data.facilities);
@@ -256,7 +257,11 @@ async function downloadPDF() {
     const resp = await fetch('/api/generate-pdf', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({report: window.lastReport, location_name: location})
+      body: JSON.stringify({
+      report: window.lastReport,
+      location_name: location,
+      data_source: window.lastDataSource || undefined
+    })
     });
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);

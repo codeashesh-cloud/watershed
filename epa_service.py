@@ -1,5 +1,8 @@
 import requests
 
+# User-Agent for Census/EPA so we get real data for any US location
+REQUEST_HEADERS = {"User-Agent": "WatershedWaterSafety/1.0 (https://github.com/watershed-app)"}
+
 KNOWN_FACILITIES = {
     "flint": [
         {"name": "Flint Water Treatment Plant", "type": "Water Treatment", "violations": 12, "permit_status": "Significant Violator", "last_inspection": "8 months ago"},
@@ -37,19 +40,21 @@ KNOWN_FACILITIES = {
 }
 
 def get_nearby_facilities(lat: float, lng: float, location_name: str = "") -> list:
-    # Use a session for the two EPA calls to reuse TCP connection (thread-safe: one session per call)
     sess = requests.Session()
-    # Try real EPA API first
+    sess.headers.update(REQUEST_HEADERS)
+    # 1) Try real EPA API using ZIP from lat/lng (any US location)
     try:
-        query_id = _get_query_id(lat, lng, sess)
-        if query_id:
-            facilities = _get_facilities_by_qid(query_id, sess)
-            if facilities:
-                return facilities
+        zip_code = _lat_lng_to_zip(lat, lng)
+        if zip_code:
+            query_id = _get_query_id_by_zip(zip_code, sess)
+            if query_id:
+                facilities = _get_facilities_by_qid(query_id, sess)
+                if facilities:
+                    return facilities
     except Exception:
         pass
 
-    # Fall back to known facilities for key locations
+    # 2) Fall back to known facilities for key locations
     name_lower = location_name.lower()
     for keyword, facilities in KNOWN_FACILITIES.items():
         if keyword in name_lower:
@@ -58,16 +63,16 @@ def get_nearby_facilities(lat: float, lng: float, location_name: str = "") -> li
 
     return []
 
-def _get_query_id(lat, lng, session: requests.Session):
+def _get_query_id_by_zip(zip_code: str, session: requests.Session):
     resp = session.get(
         'https://echodata.epa.gov/echo/cwa_rest_services.get_facilities',
         params={
             'output': 'JSON',
-            'p_zip': _lat_lng_to_zip(lat, lng),
+            'p_zip': zip_code,
             'p_act': 'Y',
             'responseset': 8
         },
-        timeout=6
+        timeout=8
     )
     return resp.json().get('Results', {}).get('QueryID')
 
@@ -94,8 +99,33 @@ def _get_facilities_by_qid(query_id, session: requests.Session):
             continue
     return facilities
 
-def _lat_lng_to_zip(lat, lng):
-    # Rough zip lookup for key areas
+def _lat_lng_to_zip(lat: float, lng: float):
+    # Try Census geocoder first for any US point (real data)
+    try:
+        resp = requests.get(
+            "https://geocoding.geo.census.gov/geocoder/geographies/coordinates",
+            params={
+                "x": lng,
+                "y": lat,
+                "benchmark": "Public_AR_Current",
+                "vintage": "Current_Current",
+                "layers": "14",  # ZIP codes
+                "format": "json",
+            },
+            headers=REQUEST_HEADERS,
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            raise ValueError("Census non-200")
+        data = resp.json()
+        geos = data.get("geographies", {}).get("2020 Census ZIP Code Tabulation Areas", [])
+        if geos and len(geos) > 0:
+            z = geos[0].get("GEOID")
+            if z and len(z) >= 5:
+                return z[:5]
+    except Exception:
+        pass
+    # Fallback: rough zip lookup for key areas only
     if 42.5 < lat < 43.5 and -84.5 < lng < -83.0:
         return "48503"  # Flint MI
     if 29.5 < lat < 30.5 and -95.8 < lng < -94.8:
@@ -104,4 +134,8 @@ def _lat_lng_to_zip(lat, lng):
         return "70801"  # Baton Rouge LA
     if 38.5 < lat < 39.5 and -77.5 < lng < -75.5:
         return "21401"  # Chesapeake MD
+    if 37.0 < lat < 38.0 and -108.0 < lng < -106.5:
+        return "81301"  # SW Colorado (Animas area)
+    if 41.3 < lat < 41.8 and -82.0 < lng < -81.4:
+        return "44095"  # Cuyahoga / Lake Erie Ohio
     return None

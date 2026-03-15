@@ -94,7 +94,8 @@ async def generate_pdf(request: Request):
     body = await request.json()
     report = body.get("report")
     location = body.get("location_name", "Unknown Location")
-    pdf_bytes = generate_report_pdf(report, location)
+    data_source = body.get("data_source", "").strip() or None
+    pdf_bytes = generate_report_pdf(report, location, data_source=data_source)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
